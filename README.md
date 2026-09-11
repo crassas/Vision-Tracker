@@ -159,3 +159,23 @@ test/core.test.ts headless verification of the pure logic
 
 MIT. Uses [MediaPipe Tasks](https://ai.google.dev/edge/mediapipe) (Apache-2.0),
 [React](https://react.dev) and [Vite](https://vite.dev) (MIT). No proprietary services.
+
+## Verified in a real browser
+
+`npm run shoot` drives the actual app in headless Chromium with a synthetic
+camera (`test/harness/fake-camera.js`), across desktop (1366), phone (390@3×) and
+narrow phone (320) viewports. It asserts **zero horizontal overflow** and **zero
+page errors** at every size, and writes screenshots to `docs/`.
+
+`test/harness/hud-proof.html` renders the real HUD against synthetic but
+anatomically-plausible tracking data, so the overlay can be reviewed without
+model weights.
+
+Confirmed: camera acquisition at 1280×720, 60 FPS / 16.7 ms frame time on the
+phone viewport, the governor independently selecting `HIGH` on desktop and
+`ECON` on mobile, and correct CJK rendering in both DOM and canvas.
+
+> The harness tolerates the CV modules reporting `FAULT` when the model bucket is
+> unreachable (as in a restricted CI sandbox) — that path is itself worth seeing,
+> since it proves the app degrades gracefully instead of crashing. Tracking
+> accuracy against a live human camera still needs a human.

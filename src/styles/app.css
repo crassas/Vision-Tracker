@@ -5,6 +5,21 @@
  * hairlines, monospaced type, no radii above 2px, no shadows.
  */
 
+/*
+ * The HUD uses 26 CJK glyphs (顔手骨物, 視覚追跡 …) as part of its visual language.
+ * Relying on a system CJK font is not safe — many Linux and some Windows
+ * installs have none, and the glyphs render as tofu boxes. So we ship a Noto
+ * Sans JP subset containing exactly those 26 glyphs: 4.9 KB, built reproducibly
+ * by scripts/build-cjk-subset.mjs.
+ */
+@font-face {
+  font-family: 'VT CJK';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/vt-cjk.woff2') format('woff2');
+}
+
 @font-face {
   font-family: 'JetBrains Mono';
   font-style: normal;
@@ -27,7 +42,7 @@
   --pewter: #8a98a2;
   --oxide: #c4562a;
 
-  --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, 'VT CJK', monospace;
 
   /* Safe areas so the HUD never sits under a notch or a home indicator. */
   --sat: env(safe-area-inset-top, 0px);
@@ -130,6 +145,14 @@ body {
   background: var(--substrate);
   border-bottom: 1px solid var(--rule);
   min-height: 44px;
+  /* Structural guarantee: the control row can never overflow the viewport,
+     independent of the breakpoints below. Controls hold their size; the
+     wordmark absorbs the shortfall. */
+  overflow: hidden;
+}
+
+.bar > .btn {
+  flex: 0 0 auto;
 }
 
 .mark {
@@ -472,13 +495,41 @@ select {
 
 /* ── mobile ─────────────────────────────────────────────────────────────── */
 
-@media (max-width: 720px) {
+@media (max-width: 860px) {
   .mark small { display: none; }
   .bar { gap: 6px; padding-left: calc(8px + var(--sal)); padding-right: calc(8px + var(--sar)); }
   .btn { padding: 0 9px; height: 38px; font-size: 9px; }
   .gauge { min-width: 54px; }
   .gauge dd { font-size: 11px; }
   .foot { gap: 6px; }
+
+  /* The four module buttons drop to glyph-only: 顔手骨物 are self-describing and
+     the words are what overflow a 390px viewport. */
+  .btn.mod .lbl { display: none; }
+  .btn.mod { padding: 0 10px; min-width: 40px; font-size: 14px; }
+
+  /* The wordmark is the only truly elastic element, so it yields first. */
+  .mark {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Very narrow: the wordmark abbreviates rather than squeezing the controls. */
+@media (max-width: 420px) {
+  .mark { font-size: 0; letter-spacing: 0; flex-shrink: 1; }
+  .mark::before {
+    content: 'V-T';
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    color: var(--sodium);
+  }
+  .bar { gap: 4px; }
+  .btn { padding: 0 7px; }
+  .btn.mod { padding: 0 8px; min-width: 36px; }
 }
 
 /* Landscape phone: the stage is precious, so the chrome collapses. */

@@ -9,7 +9,8 @@ import { PALETTE, alpha } from '../core/palette';
 
 export interface Ctx2 extends CanvasRenderingContext2D {}
 
-export const MONO = "'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+export const MONO =
+  "'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, 'VT CJK', monospace";
 
 export function setType(ctx: Ctx2, size: number, weight = 400, tracking = 0): void {
   ctx.font = `${weight} ${size}px ${MONO}`;
