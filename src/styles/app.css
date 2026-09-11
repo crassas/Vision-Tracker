@@ -1,0 +1,489 @@
+/*
+ * VISION-TRACKER chrome.
+ * The DOM layer is intentionally thin: it is a control surface around the
+ * canvas, not a second HUD. Everything here is instrument panel — flat fills,
+ * hairlines, monospaced type, no radii above 2px, no shadows.
+ */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: local('JetBrains Mono'), local('IBM Plex Mono'), local('SF Mono');
+}
+
+:root {
+  --ground: #070a09;
+  --substrate: #0d1211;
+  --plate: #151c1a;
+  --rule: #2a3532;
+  --sodium: #e4b056;
+  --sodium-dim: #7a6135;
+  --bone: #dcd3be;
+  --bone-dim: #8a8577;
+  --verdigris: #6f9e8a;
+  --indigo: #7b86b8;
+  --pewter: #8a98a2;
+  --oxide: #c4562a;
+
+  --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Safe areas so the HUD never sits under a notch or a home indicator. */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--ground);
+  color: var(--bone);
+  font-family: var(--mono);
+  overscroll-behavior: none;
+}
+
+body {
+  /* Dynamic viewport unit: correct behaviour under mobile browser chrome. */
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--ground);
+}
+
+/* ── stage ──────────────────────────────────────────────────────────────── */
+
+.stage {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  touch-action: none;
+}
+
+.stage video,
+.stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.stage video {
+  object-fit: cover;
+  /* Slight desaturation so the sensor image never competes with the overlay. */
+  filter: saturate(0.72) contrast(1.06) brightness(0.94);
+}
+
+.stage video.mirrored {
+  transform: scaleX(-1);
+}
+
+.stage canvas {
+  pointer-events: none;
+}
+
+/* Grain + vignette. Pure CSS so it costs no canvas time. */
+.stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 45%, transparent 42%, rgba(7, 10, 9, 0.72) 100%),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(228, 176, 86, 0.028) 0px,
+      rgba(228, 176, 86, 0.028) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  mix-blend-mode: normal;
+}
+
+.stage.no-post::after {
+  background: radial-gradient(circle at 50% 45%, transparent 48%, rgba(7, 10, 9, 0.6) 100%);
+}
+
+/* ── header ─────────────────────────────────────────────────────────────── */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(8px + var(--sat)) calc(12px + var(--sar)) 8px calc(12px + var(--sal));
+  background: var(--substrate);
+  border-bottom: 1px solid var(--rule);
+  min-height: 44px;
+}
+
+.mark {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  color: var(--sodium);
+  white-space: nowrap;
+}
+
+.mark small {
+  color: var(--bone-dim);
+  letter-spacing: 0.8px;
+  font-size: 9px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ── controls ───────────────────────────────────────────────────────────── */
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--rule);
+  background: var(--plate);
+  color: var(--bone);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 0 12px;
+  height: 34px;
+  min-width: 44px;
+  cursor: pointer;
+  transition: background 90ms linear, border-color 90ms linear, color 90ms linear;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 1px;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--sodium-dim);
+  color: var(--sodium);
+}
+
+.btn:active:not(:disabled) {
+  background: #1d2523;
+}
+
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 1px solid var(--sodium);
+  outline-offset: 1px;
+}
+
+.btn.on {
+  border-color: var(--sodium);
+  color: var(--ground);
+  background: var(--sodium);
+}
+
+.btn.armed {
+  border-color: var(--oxide);
+  color: var(--oxide);
+}
+
+.btn.glyph {
+  font-size: 13px;
+  padding: 0 10px;
+}
+
+/* Module toggles carry their module's signature colour when live. */
+.btn.mod[data-mod='face'].on { background: var(--sodium); border-color: var(--sodium); }
+.btn.mod[data-mod='hands'].on { background: var(--verdigris); border-color: var(--verdigris); }
+.btn.mod[data-mod='pose'].on { background: var(--indigo); border-color: var(--indigo); }
+.btn.mod[data-mod='objects'].on { background: var(--pewter); border-color: var(--pewter); }
+.btn.mod.on { color: var(--ground); }
+
+.btn.mod .cost {
+  font-size: 8px;
+  opacity: 0.8;
+}
+
+.btn.mod.loading {
+  border-color: var(--sodium-dim);
+  color: var(--sodium-dim);
+}
+
+.btn.mod.err {
+  border-color: var(--oxide);
+  color: var(--oxide);
+}
+
+/* ── footer / telemetry ─────────────────────────────────────────────────── */
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px calc(12px + var(--sar)) calc(8px + var(--sab)) calc(12px + var(--sal));
+  background: var(--substrate);
+  border-top: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.foot::-webkit-scrollbar {
+  display: none;
+}
+
+.gauge {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 62px;
+  flex-shrink: 0;
+}
+
+.gauge dt {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--bone-dim);
+}
+
+.gauge dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge dd.hot {
+  color: var(--oxide);
+}
+
+.gauge dd.good {
+  color: var(--verdigris);
+}
+
+.rule-v {
+  width: 1px;
+  align-self: stretch;
+  background: var(--rule);
+  flex-shrink: 0;
+}
+
+/* ── panel ──────────────────────────────────────────────────────────────── */
+
+.panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(330px, 88vw);
+  background: rgba(13, 18, 17, 0.96);
+  border-left: 1px solid var(--rule);
+  padding: 14px calc(14px + var(--sar)) calc(14px + var(--sab)) 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 20;
+  backdrop-filter: blur(3px);
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--sodium);
+  font-weight: 500;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  color: var(--bone-dim);
+  min-height: 34px;
+}
+
+.row b {
+  color: var(--bone);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.seg {
+  display: flex;
+  border: 1px solid var(--rule);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.seg button {
+  appearance: none;
+  border: 0;
+  border-right: 1px solid var(--rule);
+  background: var(--plate);
+  color: var(--bone-dim);
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  padding: 0 9px;
+  height: 30px;
+  min-width: 40px;
+  cursor: pointer;
+}
+
+.seg button:last-child {
+  border-right: 0;
+}
+
+.seg button.on {
+  background: var(--sodium);
+  color: var(--ground);
+}
+
+select {
+  appearance: none;
+  background: var(--plate);
+  color: var(--bone);
+  border: 1px solid var(--rule);
+  font: inherit;
+  font-size: 10px;
+  padding: 7px 8px;
+  border-radius: 1px;
+  max-width: 190px;
+}
+
+/* ── log ────────────────────────────────────────────────────────────────── */
+
+.log {
+  font-size: 9px;
+  line-height: 1.55;
+  color: var(--bone-dim);
+  max-height: 168px;
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+  padding: 7px;
+  background: var(--ground);
+}
+
+.log div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log .warn { color: var(--sodium); }
+.log .error { color: var(--oxide); }
+.log time { color: var(--sodium-dim); margin-right: 6px; }
+
+/* ── overlays ───────────────────────────────────────────────────────────── */
+
+.veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 24px;
+  background: rgba(7, 10, 9, 0.9);
+  z-index: 10;
+}
+
+.veil h1 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 4px;
+  color: var(--sodium);
+  font-weight: 500;
+}
+
+.veil p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: 0.6px;
+  color: var(--bone-dim);
+  max-width: 42ch;
+}
+
+.veil .err {
+  color: var(--oxide);
+  border: 1px solid var(--oxide);
+  padding: 9px 12px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.veil .btn {
+  height: 42px;
+  justify-self: center;
+  padding: 0 26px;
+}
+
+.scan {
+  width: 190px;
+  height: 1px;
+  background: var(--sodium-dim);
+  position: relative;
+  overflow: hidden;
+  justify-self: center;
+}
+
+.scan::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: var(--sodium);
+  animation: sweep 1.5s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(240%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan::after { animation: none; }
+  * { transition: none !important; }
+}
+
+/* ── mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .mark small { display: none; }
+  .bar { gap: 6px; padding-left: calc(8px + var(--sal)); padding-right: calc(8px + var(--sar)); }
+  .btn { padding: 0 9px; height: 38px; font-size: 9px; }
+  .gauge { min-width: 54px; }
+  .gauge dd { font-size: 11px; }
+  .foot { gap: 6px; }
+}
+
+/* Landscape phone: the stage is precious, so the chrome collapses. */
+@media (max-height: 460px) and (orientation: landscape) {
+  .bar, .foot { min-height: 38px; padding-top: 4px; padding-bottom: 4px; }
+  .btn { height: 30px; }
+  .gauge dt { display: none; }
+}
